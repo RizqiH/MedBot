@@ -1,3 +1,30 @@
+# MedBot INA
+
+## Environment variables
+
+Copy `.env.local.example` to `.env.local` and fill all values.
+
+Required:
+- `GROQ_API_KEY`
+- `HUGGINGFACE_API_KEY`
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `INGEST_SECRET`
+
+## Supabase setup
+
+Enable `pgvector` and create the `documents` table + `match_documents` function using the SQL from your project prompt. Ensure the column is `vector(1024)`.
+
+## Ingest a document
+
+```bash
+curl -X POST "http://localhost:3000/api/ingest" \
+  -H "Content-Type: application/json" \
+  -H "x-ingest-secret: $INGEST_SECRET" \
+  -d '{"text":"(paste Kemenkes guideline text here)","source":"kemenkes-sample"}'
+```
+
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started
@@ -34,3 +61,4 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+# MedBot
