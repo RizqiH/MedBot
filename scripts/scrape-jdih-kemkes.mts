@@ -1,8 +1,6 @@
 import "dotenv/config";
-
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-
 import { chromium } from "playwright";
 import { getDocument, GlobalWorkerOptions } from "pdfjs-dist/legacy/build/pdf.mjs";
 
@@ -37,8 +35,7 @@ function normalizeDetailPath(href: string, baseUrl: string): string | null {
 async function fetchPdfBuffer(url: string): Promise<Buffer> {
   const res = await fetch(url, {
     headers: {
-      "user-agent":
-        "MedBotINA-JDIHFetcher/1.0 (+local dev; contact: maintainer)",
+      "user-agent": "MedBotINA-JDIHFetcher/1.0 (+local dev; contact: maintainer)",
       accept: "application/pdf,*/*",
     },
   });
@@ -98,14 +95,11 @@ async function ingestChunked(args: {
 
     if (!res.ok) {
       const body = await res.text().catch(() => "");
-      throw new Error(
-        `Ingest failed (${res.status}) for ${source}: ${body || "unknown error"}`
-      );
+      throw new Error(`Ingest failed (${res.status}) for ${source}: ${body || "unknown error"}`);
     }
 
     const json = (await res.json()) as { inserted?: unknown };
-    const inserted =
-      typeof json.inserted === "number" ? json.inserted : undefined;
+    const inserted = typeof json.inserted === "number" ? json.inserted : undefined;
     insertedTotal += inserted ?? 0;
   }
 
@@ -143,15 +137,17 @@ async function main() {
     throw new Error("Missing INGEST_SECRET");
   }
 
-  const startUrl =
-    process.env.SCRAPE_START_URL ?? "https://jdih.kemkes.go.id/documents";
+  const searchKeywords = [
+    "Panduan Praktik Klinis",
+    "Formularium Nasional",
+    "Pedoman Tatalaksana",
+    "Pemberian Obat"
+  ];
+
   const maxPages = Math.max(1, envInt("SCRAPE_MAX_PAGES", 1));
-  const maxDocs = Math.max(1, envInt("SCRAPE_MAX_DOCS", 3));
+  const maxDocs = Math.max(1, envInt("SCRAPE_MAX_DOCS", 5));
   const delayMs = Math.max(0, envInt("SCRAPE_DELAY_MS", 1200));
-  const maxCharsPerRequest = Math.max(
-    20_000,
-    envInt("INGEST_MAX_CHARS_PER_REQUEST", 120_000)
-  );
+  const maxCharsPerRequest = Math.max(20_000, envInt("INGEST_MAX_CHARS_PER_REQUEST", 120_000));
 
   GlobalWorkerOptions.workerSrc = pathToFileURL(
     path.join(process.cwd(), "node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs")
@@ -164,68 +160,71 @@ async function main() {
   const browser = await chromium.launch({ headless: true });
   try {
     const context = await browser.newContext({
-      userAgent:
-        "MedBotINA-JDIHFetcher/1.0 (+local dev; contact: maintainer)",
+      userAgent: "MedBotINA-JDIHFetcher/1.0 (+local dev; contact: maintainer)",
       locale: "id-ID",
     });
 
     const page = await context.newPage();
-    await page.goto(startUrl, { waitUntil: "domcontentloaded", timeout: 120_000 });
-    await page.waitForTimeout(Math.min(5000, Math.max(delayMs, 1000)));
-
     const detailPaths = new Set<string>();
 
-    for (let pageIndex = 0; pageIndex < maxPages; pageIndex++) {
-      await page.waitForTimeout(delayMs);
-
-      const hrefs = await page.$$eval("a[href]", (anchors) =>
-        anchors
-          .map((a) => a.getAttribute("href"))
-          .filter((href): href is string => typeof href === "string")
-      );
-
-      for (const href of hrefs) {
-        const pathOnly = normalizeDetailPath(href, page.url());
-        if (!pathOnly) continue;
-        detailPaths.add(pathOnly);
-      }
-
+    for (const keyword of searchKeywords) {
       if (detailPaths.size >= maxDocs) break;
 
-      const next = page.locator(
-        'a[rel="next"], button:has-text("Berikutnya"), button:has-text("Selanjutnya")'
-      );
-      if ((await next.count()) === 0) break;
-      const first = next.first();
-      const enabled = await first.isEnabled().catch(() => false);
-      if (!enabled) break;
-
-      await first.click({ timeout: 60_000 });
-      await page.waitForLoadState("domcontentloaded", { timeout: 120_000 });
+      const encodedKeyword = encodeURIComponent(keyword);
+      const searchUrl = `https://jdih.kemkes.go.id/documents?k=${encodedKeyword}`;
+      
+      await page.goto(searchUrl, { waitUntil: "domcontentloaded", timeout: 120_000 });
       await page.waitForTimeout(Math.min(5000, Math.max(delayMs, 1000)));
+
+      for (let pageIndex = 0; pageIndex < maxPages; pageIndex++) {
+        await page.waitForTimeout(delayMs);
+
+        const hrefs = await page.$$eval("a[href]", (anchors) =>
+          anchors
+            .map((a) => a.getAttribute("href"))
+            .filter((href): href is string => typeof href === "string")
+        );
+
+        for (const href of hrefs) {
+          const pathOnly = normalizeDetailPath(href, page.url());
+          if (!pathOnly) continue;
+          detailPaths.add(pathOnly);
+        }
+
+        if (detailPaths.size >= maxDocs) break;
+
+        const next = page.locator('a[rel="next"], button:has-text("Berikutnya"), button:has-text("Selanjutnya")');
+        if ((await next.count()) === 0) break;
+        
+        const first = next.first();
+        const enabled = await first.isEnabled().catch(() => false);
+        if (!enabled) break;
+
+        await first.click({ timeout: 60_000 });
+        await page.waitForLoadState("domcontentloaded", { timeout: 120_000 });
+        await page.waitForTimeout(Math.min(5000, Math.max(delayMs, 1000)));
+      }
     }
 
     const selected = Array.from(detailPaths).slice(0, maxDocs);
     if (selected.length === 0) {
-      throw new Error(
-        "No /documents/* detail links found. The page structure may have changed."
-      );
+      throw new Error("No specific medical documents found with the provided keywords.");
     }
 
     let grandTotalInserted = 0;
 
-    for (const path of selected) {
-      const url = normalizeUrl(path, startUrl);
+    for (const detailPath of selected) {
+      const url = normalizeUrl(detailPath, "https://jdih.kemkes.go.id");
       if (!url) continue;
 
       await page.goto(url, { waitUntil: "domcontentloaded", timeout: 120_000 });
       await page.waitForTimeout(delayMs);
 
       const title = await page.title();
-      const pdfHref = await page.evaluate((pageHref: string) => {
-        const extractPdfHrefFromDetailPageInner = (pageUrl: string) => {
+      const pdfHref = await page.evaluate((pageUrl: string) => {
+        const extractPdfHrefFromDetailPageInner = (innerPageUrl: string) => {
           try {
-            const docUrl = new URL(pageUrl);
+            const docUrl = new URL(innerPageUrl);
 
             const iframeSrc = docUrl.searchParams.get("iframe") ?? "";
             const viewerMarker = "/pdfjs/web/viewer.html";
@@ -243,7 +242,7 @@ async function main() {
               if (!raw) continue;
 
               if (raw.includes("/pdfjs/web/viewer.html")) {
-                const u = new URL(raw, pageUrl);
+                const u = new URL(raw, innerPageUrl);
                 const file = u.searchParams.get("file");
                 if (file) return file;
               }
@@ -263,7 +262,7 @@ async function main() {
           }
         };
 
-        return extractPdfHrefFromDetailPageInner(pageHref);
+        return extractPdfHrefFromDetailPageInner(pageUrl);
       }, url);
 
       let resolvedHref = pdfHref;
@@ -279,14 +278,10 @@ async function main() {
       try {
         const maybeDecoded = decodeURIComponent(resolvedHref);
         const normalizedDecoded = normalizeUrl(maybeDecoded, url);
-        if (
-          normalizedDecoded &&
-          normalizedDecoded.toLowerCase().includes(".pdf")
-        ) {
+        if (normalizedDecoded && normalizedDecoded.toLowerCase().includes(".pdf")) {
           pdfUrl = normalizedDecoded;
         }
       } catch {
-        // ignore
       }
 
       if (!pdfUrl) {
@@ -310,28 +305,10 @@ async function main() {
       });
       grandTotalInserted += inserted;
 
-      console.log(
-        JSON.stringify(
-          {
-            ok: true,
-            path,
-            url,
-            pdfUrl,
-            inserted,
-          },
-          null,
-          2
-        )
-      );
+      console.log(JSON.stringify({ ok: true, path: detailPath, url, pdfUrl, inserted }, null, 2));
     }
 
-    console.log(
-      JSON.stringify(
-        { ok: true, docs: selected.length, insertedRows: grandTotalInserted },
-        null,
-        2
-      )
-    );
+    console.log(JSON.stringify({ ok: true, docs: selected.length, insertedRows: grandTotalInserted }, null, 2));
   } finally {
     await browser.close();
   }

@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "scrape:jdih-kemkes": "node --experimental-strip-types scripts/scrape-jdih-kemkes.mts"
+    "scrape:jdih-kemkes": "node --experimental-strip-types scripts/scrape-jdih-kemkes.mts",
+    "ingest:medicine": "node --experimental-strip-types scripts/ingest-medicine-csv.mts"
   },
   "dependencies": {
     "@ai-sdk/openai": "^3.0.53",

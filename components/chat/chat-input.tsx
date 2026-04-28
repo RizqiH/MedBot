@@ -18,14 +18,14 @@ export function ChatInput({
   onSubmit,
 }: ChatInputProps) {
   return (
-    <div className="border-t px-4 py-4">
+    <div className="border-t px-3 sm:px-4 py-3 sm:py-4 bg-white">
       <form onSubmit={onSubmit} className="flex gap-2 items-end">
         <Textarea
           value={input}
           onChange={onInputChange}
-          placeholder="Ceritakan gejala yang kamu rasakan..."
+          placeholder="Ceritakan gejala atau tanyakan obat..."
           rows={2}
-          className="resize-none flex-1"
+          className="resize-none flex-1 text-sm"
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();
@@ -33,15 +33,17 @@ export function ChatInput({
             }
           }}
         />
-        <Button type="submit" disabled={isLoading || !input.trim()}>
-          {isLoading ? "Memproses..." : "Kirim"}
+        <Button
+          type="submit"
+          disabled={isLoading || !input.trim()}
+          className="bg-teal-600 hover:bg-teal-700 text-white shrink-0"
+        >
+          {isLoading ? "..." : "Kirim"}
         </Button>
       </form>
-      <p className="text-xs text-muted-foreground mt-2 text-center">
-        MedBot INA bukan pengganti konsultasi dokter. Selalu konfirmasi ke
-        tenaga medis profesional.
+      <p className="text-[10px] sm:text-xs text-slate-400 mt-2 text-center">
+        Bukan pengganti konsultasi dokter. Selalu konfirmasi ke tenaga medis.
       </p>
     </div>
   );
 }
-

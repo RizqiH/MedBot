@@ -14,6 +14,13 @@ function decodeSourcesHeader(encoded: string): Source[] {
   return parsed as Source[];
 }
 
+const SUGGESTIONS = [
+  "Apa gejala demam berdarah?",
+  "Obat untuk batuk berdahak",
+  "Cara mengatasi diare pada dewasa",
+  "Apa itu hipertensi dan risikonya?",
+];
+
 export function ChatInterface() {
   const [sources, setSources] = useState<Source[]>([]);
   const [input, setInput] = useState("");
@@ -35,13 +42,31 @@ export function ChatInterface() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  const handleSuggestionClick = (text: string) => {
+    void sendMessage({ text });
+  };
+
   return (
     <div className="flex flex-col h-full">
-      <div className="flex-1 overflow-y-auto px-4 py-6 space-y-4">
+      <div className="flex-1 overflow-y-auto px-3 sm:px-4 py-4 sm:py-6 space-y-4">
         {messages.length === 0 && (
-          <div className="text-center text-muted-foreground mt-20">
-            <p className="text-lg font-medium">Selamat datang di MedBot INA</p>
-            <p className="text-sm mt-1">Ceritakan gejala yang kamu rasakan</p>
+          <div className="flex flex-col items-center justify-center h-full text-center px-4">
+            <p className="text-lg sm:text-xl font-semibold text-blue-800">Selamat datang di MedBot</p>
+            <p className="text-sm text-slate-500 mt-1 mb-6">
+              Ceritakan gejala atau tanyakan informasi obat
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full max-w-md">
+              {SUGGESTIONS.map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => handleSuggestionClick(s)}
+                  className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-left text-sm text-slate-600 shadow-sm transition-all hover:border-teal-300 hover:bg-teal-50 hover:text-teal-700 active:scale-[0.98]"
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
           </div>
         )}
         {messages.map((message) => (
@@ -51,7 +76,7 @@ export function ChatInterface() {
               id: message.id,
               role: message.role === "user" ? "user" : "assistant",
               content: message.parts
-                .map((part) => (part.type === "text" ? part.text : ""))
+                .map((part) => (part.type === "text" ? (part as { type: "text"; text: string }).text : ""))
                 .join(""),
             }}
             sources={message.role === "assistant" ? sources : undefined}
@@ -73,4 +98,3 @@ export function ChatInterface() {
     </div>
   );
 }
-
