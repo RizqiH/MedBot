@@ -82,21 +82,7 @@ export async function POST(req: NextRequest) {
     [...messages].reverse().find((m) => m.role === "user")?.content ?? "";
   const { systemPrompt, sources } = await buildRAGContext(lastUserMessage);
 
-  if (sources.length === 0) {
-    const fallbackText =
-      "Maaf, aku belum punya informasi yang relevan di basis pengetahuan Pedoman Kemenkes RI untuk menjawab pertanyaan itu.\n\n" +
-      "Silakan lakukan ingest dokumen Kemenkes ke sistem terlebih dahulu, lalu coba ulang pertanyaannya.\n\n" +
-      "Respons ini bukan pengganti konsultasi dokter. Jika gejala berat (sesak napas, nyeri dada hebat, penurunan kesadaran, kejang, atau dehidrasi berat), segera ke IGD.";
 
-    const response = new Response(fallbackText, {
-      headers: {
-        "Content-Type": "text/plain; charset=utf-8",
-        "x-sources": Buffer.from(JSON.stringify([])).toString("base64"),
-      },
-    });
-
-    return response;
-  }
 
   const result = streamText({
     model: groq.chat("llama-3.1-8b-instant"),
