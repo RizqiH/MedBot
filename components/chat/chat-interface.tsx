@@ -1,7 +1,7 @@
 "use client";
 
 import { useChat } from "@ai-sdk/react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { TextStreamChatTransport } from "ai";
 import { ChatInput } from "./chat-input";
 import { MessageBubble } from "./message-bubble";
@@ -24,15 +24,20 @@ const SUGGESTIONS = [
 export function ChatInterface() {
   const [sources, setSources] = useState<Source[]>([]);
   const [input, setInput] = useState("");
+  const [sessionId, setSessionId] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const { messages, sendMessage, status } = useChat({
     transport: new TextStreamChatTransport({
       api: "/api/chat",
+      headers: sessionId ? { "x-session-id": sessionId } : {},
+      body: sessionId ? { sessionId } : {},
       fetch: async (input, init) => {
         const response = await fetch(input, init);
         const encodedSources = response.headers.get("x-sources");
         if (encodedSources) setSources(decodeSourcesHeader(encodedSources));
+        const sid = response.headers.get("x-session-id");
+        if (sid) setSessionId(sid);
         return response;
       },
     }),
@@ -42,9 +47,9 @@ export function ChatInterface() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const handleSuggestionClick = (text: string) => {
+  const handleSuggestionClick = useCallback((text: string) => {
     void sendMessage({ text });
-  };
+  }, [sendMessage]);
 
   return (
     <div className="flex flex-col h-full">

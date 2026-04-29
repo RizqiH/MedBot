@@ -7,7 +7,8 @@ const INGEST_SECRET = process.env.INGEST_SECRET;
 if (!INGEST_SECRET) throw new Error("Missing INGEST_SECRET");
 
 const BATCH_SIZE = 20;
-const DELAY_MS = 1500;
+const DELAY_MS = 2000;
+const MAX_RETRIES = 3;
 
 function parseCsvLine(line: string): string[] {
   const fields: string[] = [];
@@ -57,22 +58,32 @@ function buildMedicineText(fields: string[]): string {
 }
 
 async function ingest(text: string, source: string): Promise<number> {
-  const res = await fetch(INGEST_URL, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      "x-ingest-secret": INGEST_SECRET!,
-    },
-    body: JSON.stringify({ text, source }),
-  });
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const res = await fetch(INGEST_URL, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-ingest-secret": INGEST_SECRET!,
+        },
+        body: JSON.stringify({ text, source }),
+      });
 
-  if (!res.ok) {
-    const body = await res.text().catch(() => "");
-    throw new Error(`Ingest failed (${res.status}): ${body}`);
+      if (!res.ok) {
+        const body = await res.text().catch(() => "");
+        throw new Error(`Ingest failed (${res.status}): ${body}`);
+      }
+
+      const json = (await res.json()) as { inserted?: number };
+      return json.inserted ?? 0;
+    } catch (err) {
+      if (attempt === MAX_RETRIES) throw err;
+      const waitMs = attempt * 3000;
+      console.log(`  Retry ${attempt}/${MAX_RETRIES} in ${waitMs / 1000}s...`);
+      await sleep(waitMs);
+    }
   }
-
-  const json = (await res.json()) as { inserted?: number };
-  return json.inserted ?? 0;
+  return 0;
 }
 
 function sleep(ms: number): Promise<void> {

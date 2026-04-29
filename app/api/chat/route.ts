@@ -1,6 +1,6 @@
 import { streamText } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
-import { buildRAGContext } from "@/lib/rag/pipeline";
+import { orchestrate, saveAssistantResponse } from "@/lib/agent/orchestrator";
 import { NextRequest } from "next/server";
 
 export const runtime = "nodejs";
@@ -65,6 +65,7 @@ export async function POST(req: NextRequest) {
   const body: unknown = await req.json();
   const maybeMessages = (body as { messages?: unknown }).messages;
   const maybeMessage = (body as { message?: unknown }).message;
+  const sessionId = (body as { sessionId?: string }).sessionId;
 
   const messages: ChatMessage[] = isChatMessageArray(maybeMessages)
     ? maybeMessages
@@ -80,22 +81,37 @@ export async function POST(req: NextRequest) {
 
   const lastUserMessage =
     [...messages].reverse().find((m) => m.role === "user")?.content ?? "";
-  const { systemPrompt, sources } = await buildRAGContext(lastUserMessage);
 
-
+  const {
+    systemPrompt,
+    sources,
+    sessionId: activeSessionId,
+    webResults,
+  } = await orchestrate(lastUserMessage, sessionId);
 
   const result = streamText({
     model: groq.chat("llama-3.1-8b-instant"),
     system: systemPrompt,
     messages,
+    onFinish: async ({ text }) => {
+      await saveAssistantResponse(activeSessionId, text).catch(() => {});
+    },
   });
 
   const response = result.toTextStreamResponse();
+
   response.headers.set(
     "x-sources",
     Buffer.from(JSON.stringify(sources)).toString("base64")
   );
+  response.headers.set("x-session-id", activeSessionId);
+
+  if (webResults.length > 0) {
+    response.headers.set(
+      "x-web-sources",
+      Buffer.from(JSON.stringify(webResults)).toString("base64")
+    );
+  }
 
   return response;
 }
-
