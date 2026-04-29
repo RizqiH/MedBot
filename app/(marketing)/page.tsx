@@ -69,7 +69,7 @@ export default function LandingPage() {
 
         <h1 className="text-4xl sm:text-6xl font-extrabold tracking-tight text-slate-900 mb-4">
           Med<span className="text-teal-600">Bot</span>{" "}
-          <span className="text-blue-800">INA</span>
+          <span className="text-teal-600">INA</span>
         </h1>
 
         <p className="text-slate-500 text-base sm:text-lg max-w-md mb-10 leading-relaxed">
