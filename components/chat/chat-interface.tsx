@@ -52,7 +52,10 @@ export function ChatInterface() {
   }, [sendMessage]);
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full relative">
+      <div className="bg-red-50 text-red-800 text-xs sm:text-sm px-4 py-2 sm:py-3 text-center border-b border-red-200 shrink-0 z-10 sticky top-0 shadow-sm">
+        <strong>Peringatan Medis:</strong> Aplikasi ini memberikan informasi berbasis AI dan BUKAN pengganti saran medis profesional, diagnosis, atau pengobatan. <strong>Selalu konsultasikan dengan dokter</strong> untuk masalah kesehatan Anda.
+      </div>
       <div className="flex-1 overflow-y-auto px-3 sm:px-4 py-4 sm:py-6 space-y-4">
         {messages.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full text-center px-4">
